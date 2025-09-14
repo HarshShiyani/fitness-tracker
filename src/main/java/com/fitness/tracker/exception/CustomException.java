@@ -8,6 +8,7 @@ public class CustomException extends RuntimeException {
   private final String errorMessage;
 
   public CustomException(HttpStatus statusCode, String errorMessage) {
+    super(errorMessage);
     this.statusCode = statusCode;
     this.errorMessage = errorMessage;
   }
