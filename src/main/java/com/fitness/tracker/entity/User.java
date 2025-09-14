@@ -20,6 +20,20 @@ import java.util.List;
 @Table(name = "users")
 public class User {
 
+    public User() {}
+
+    public User(Long id, String name, String email, String password, UserRole role,
+        LocalDateTime createdDate, List<WorkoutPlan> workoutPlans, List<ActivityLog> activityLogs) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.createdDate = createdDate;
+        this.workoutPlans = workoutPlans;
+        this.activityLogs = activityLogs;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
