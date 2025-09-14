@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +30,9 @@ class UserServiceImplTest {
     @InjectMocks
     private UserServiceImpl userService;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     private User user;
 
     @BeforeEach
@@ -40,6 +44,8 @@ class UserServiceImplTest {
         user.setEmail("john@example.com");
         user.setPassword("Password@1");
         user.setRole(UserRole.USER);
+
+        when(passwordEncoder.encode(any(CharSequence.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test

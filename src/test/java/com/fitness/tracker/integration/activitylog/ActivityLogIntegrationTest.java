@@ -9,6 +9,7 @@ import com.fitness.tracker.enums.UserRole;
 import com.fitness.tracker.repository.ActivityLogRepository;
 import com.fitness.tracker.repository.UserRepository;
 import com.fitness.tracker.repository.WorkoutPlanRepository;
+import com.fitness.tracker.utils.JwtUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -18,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,8 +27,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-        "spring.profiles.active=test",
-        "spring.datasource.url=jdbc:h2:mem:activitydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    "spring.profiles.active=test",
+    "spring.datasource.url=jdbc:h2:mem:activitydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
 })
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -47,7 +49,10 @@ class ActivityLogIntegrationTest {
     @Autowired
     private ActivityLogRepository activityLogRepository;
 
-    private Long adminId;
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    private String jwtToken;
     private Long userId;
     private Long workoutPlanId;
 
@@ -57,12 +62,14 @@ class ActivityLogIntegrationTest {
         workoutPlanRepository.deleteAll();
         userRepository.deleteAll();
 
+        // Create admin + user
         User admin = new User(null, "System Admin", "admin@test.com", "Admin@123", UserRole.ADMIN, null, null, null);
         User user = new User(null, "John User", "john@test.com", "User@123", UserRole.USER, null, null, null);
 
-        adminId = userRepository.save(admin).getId();
-        userId = userRepository.save(user).getId();
+        userRepository.saveAll(List.of(admin, user));
+        userId = user.getId();
 
+        // Workout plan for user
         WorkoutPlan plan = new WorkoutPlan();
         plan.setTitle("Cardio Plan");
         plan.setDescription("30 mins cardio");
@@ -70,6 +77,9 @@ class ActivityLogIntegrationTest {
         plan.setUser(user);
 
         workoutPlanId = workoutPlanRepository.save(plan).getId();
+
+        // Generate JWT token for admin
+        jwtToken = jwtUtil.generateToken(admin.getEmail(), List.of(admin.getRole().name()));
     }
 
     @Test
@@ -77,14 +87,14 @@ class ActivityLogIntegrationTest {
         ActivityLogRequest request = new ActivityLogRequest("Running", 200, 30);
 
         mockMvc.perform(post("/api/activity-logs")
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString())
-                        .param("workoutPlanId", workoutPlanId.toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity log created successfully"))
-                .andExpect(jsonPath("$.data.activityType").value("Running"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString())
+                .param("workoutPlanId", workoutPlanId.toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity log created successfully"))
+            .andExpect(jsonPath("$.data.activityType").value("Running"));
 
         assertThat(activityLogRepository.findAll()).isNotEmpty();
     }
@@ -94,13 +104,13 @@ class ActivityLogIntegrationTest {
         ActivityLogRequest invalid = new ActivityLogRequest("", 0, 0);
 
         mockMvc.perform(post("/api/activity-logs")
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString())
-                        .param("workoutPlanId", workoutPlanId.toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalid)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").exists());
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString())
+                .param("workoutPlanId", workoutPlanId.toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalid)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
@@ -114,20 +124,20 @@ class ActivityLogIntegrationTest {
         ActivityLog saved = activityLogRepository.save(log);
 
         mockMvc.perform(get("/api/activity-logs/" + saved.getId())
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity log fetched successfully"))
-                .andExpect(jsonPath("$.data.activityType").value("Cycling"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity log fetched successfully"))
+            .andExpect(jsonPath("$.data.activityType").value("Cycling"));
     }
 
     @Test
     void getActivityLogNotFound() throws Exception {
         mockMvc.perform(get("/api/activity-logs/99999")
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Activity log not found"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString()))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Activity log not found"));
     }
 
     @Test
@@ -143,14 +153,14 @@ class ActivityLogIntegrationTest {
         ActivityLogRequest update = new ActivityLogRequest("Brisk Walking", 120, 20);
 
         mockMvc.perform(put("/api/activity-logs/" + saved.getId())
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString())
-                        .param("workoutPlanId", workoutPlanId.toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(update)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity log updated successfully"))
-                .andExpect(jsonPath("$.data.activityType").value("Brisk Walking"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString())
+                .param("workoutPlanId", workoutPlanId.toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(update)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity log updated successfully"))
+            .andExpect(jsonPath("$.data.activityType").value("Brisk Walking"));
 
         Optional<ActivityLog> updated = activityLogRepository.findById(saved.getId());
         assertThat(updated).isPresent();
@@ -168,10 +178,10 @@ class ActivityLogIntegrationTest {
         ActivityLog saved = activityLogRepository.save(log);
 
         mockMvc.perform(delete("/api/activity-logs/" + saved.getId())
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity log deleted successfully"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity log deleted successfully"));
 
         assertThat(activityLogRepository.existsById(saved.getId())).isFalse();
     }
@@ -189,11 +199,11 @@ class ActivityLogIntegrationTest {
         activityLogRepository.save(log);
 
         mockMvc.perform(get("/api/activity-logs/by-user")
-                        .header("X-USER-ID", adminId)
-                        .param("userId", userId.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity logs fetched successfully"))
-                .andExpect(jsonPath("$.data[0].activityType").value("Jump Rope"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("userId", userId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity logs fetched successfully"))
+            .andExpect(jsonPath("$.data[0].activityType").value("Jump Rope"));
     }
 
     @Test
@@ -209,10 +219,10 @@ class ActivityLogIntegrationTest {
         activityLogRepository.save(log);
 
         mockMvc.perform(get("/api/activity-logs/by-workout")
-                        .header("X-USER-ID", adminId)
-                        .param("workoutPlanId", workoutPlanId.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Activity logs fetched successfully"))
-                .andExpect(jsonPath("$.data[0].activityType").value("Rowing"));
+                .header("Authorization", "Bearer " + jwtToken)
+                .param("workoutPlanId", workoutPlanId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Activity logs fetched successfully"))
+            .andExpect(jsonPath("$.data[0].activityType").value("Rowing"));
     }
 }
