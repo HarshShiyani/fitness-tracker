@@ -20,7 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @Tag(name = "User Management", description = "Create, Get, Update & Delete the users")
-@SecurityRequirement(name = "X-USER-ID")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
     private final UserService userService;

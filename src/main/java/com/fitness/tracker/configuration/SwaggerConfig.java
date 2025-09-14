@@ -1,8 +1,8 @@
 package com.fitness.tracker.configuration;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
@@ -14,18 +14,20 @@ public class SwaggerConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
-                .info(new Info()
-                        .title("Fitness Tracker API")
-                        .version("1.0.0")
-                        .description("API documentation for the Fitness Tracker Application"))
-                .components(new Components()
-                        .addSecuritySchemes("X-USER-ID",
-                                new SecurityScheme()
-                                        .type(SecurityScheme.Type.APIKEY)
-                                        .in(SecurityScheme.In.HEADER)
-                                        .name("X-USER-ID")
-                        )
+            .info(new Info()
+                .title("Fitness Tracker API")
+                .description("API documentation for Fitness Tracker application")
+                .version("1.0.0"))
+            .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
+            .components(new Components()
+                .addSecuritySchemes("bearerAuth",
+                    new SecurityScheme()
+                        .name("Authorization")
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")
+                        .description("Enter JWT token as: Bearer {token}")
                 )
-                .addSecurityItem(new SecurityRequirement().addList("X-USER-ID"));
+            );
     }
 }

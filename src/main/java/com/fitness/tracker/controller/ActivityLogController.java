@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/activity-logs")
 @Tag(name = "Activity Log Management", description = "Create, Get, Update & Delete activity logs")
-@SecurityRequirement(name = "X-USER-ID")
+@SecurityRequirement(name = "bearerAuth")
 public class ActivityLogController {
 
     private final ActivityLogService activityLogService;

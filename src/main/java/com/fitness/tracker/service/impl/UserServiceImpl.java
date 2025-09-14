@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,14 +19,17 @@ public class UserServiceImpl implements UserService {
     private final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public User createUser(User user) {
         log.debug("Creating user '{}' having email '{}'", user.getName(), user.getEmail());
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         User savedUser = userRepository.save(user);
         log.info("User '{}' created successfully", user.getName());
         return savedUser;
@@ -40,7 +44,7 @@ public class UserServiceImpl implements UserService {
         log.debug("User found having id '{}' and email '{}'", existing.getId(), existing.getEmail());
         existing.setName(user.getName());
         existing.setEmail(user.getEmail());
-        existing.setPassword(user.getPassword());
+        existing.setPassword(passwordEncoder.encode(user.getPassword()));
         existing.setRole(user.getRole());
         User updatedUser = userRepository.save(existing);
         log.info("User '{}' updated successfully", updatedUser.getName());

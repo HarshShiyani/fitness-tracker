@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/workout-plans")
 @Tag(name = "Workout Plan Management", description = "Create, Get, Update & Delete the workout plans")
-@SecurityRequirement(name = "X-USER-ID")
+@SecurityRequirement(name = "bearerAuth")
 public class WorkoutPlanController {
 
     private final WorkoutPlanService workoutPlanService;
